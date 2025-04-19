@@ -8,6 +8,7 @@
 #include <fcl/geometry/shape/triangle_p.h>
 #include <fcl/geometry/shape/cylinder.h>
 #include <fcl/geometry/geometric_shape_to_BVH_model.h>
+#include <visualization_msgs/msg/marker.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <resource_retriever/retriever.h>
 #include <unordered_map>
@@ -112,17 +113,40 @@ public:
         }
     }
 
-    bool checkSelfCollision() {
+    bool checkSelfCollision(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub) {
         for (auto it1 = links_.begin(); it1 != links_.end(); ++it1) {
             for (auto it2 = std::next(it1); it2 != links_.end(); ++it2) {
                 CollisionRequestd req;
                 CollisionResultd res;
                 fcl::collide(it1->second.object.get(), it2->second.object.get(), req, res);
-                if (res.isCollision())
+                if (res.isCollision()) {
+                    auto contact = res.getContact(0);
+                    publishMarker(marker_pub, contact); 
                     return true;
+                }
             }
         }
         return false;
+    }
+
+    void publishMarker(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub, const fcl::Contactd& contact) {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "pelvis"; 
+        marker.header.stamp = rclcpp::Clock().now();
+        marker.ns = "collision_points";
+        marker.id = marker_id_++;
+        marker.type = visualization_msgs::msg::Marker::SPHERE;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.pose.position.x = contact.pos[0];
+        marker.pose.position.y = contact.pos[1];
+        marker.pose.position.z = contact.pos[2];
+        marker.scale.x = marker.scale.y = marker.scale.z = 0.02;
+        marker.color.r = 1.0;
+        marker.color.g = 0.0;
+        marker.color.b = 0.0;
+        marker.color.a = 1.0;
+        marker.lifetime = rclcpp::Duration::from_seconds(0.1);
+        marker_pub->publish(marker);
     }
 
 private:
@@ -200,18 +224,16 @@ private:
         return model;
     }
 
+    int marker_id_ = 0;
     std::unordered_map<std::string, LinkCollision> links_;
 };
 
 class CollisionChecker : public rclcpp::Node {
 public:
     CollisionChecker() : Node("collision_checker") {
-        joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-            "/joint_states", 10,
-            std::bind(&CollisionChecker::jointCallback, this, std::placeholders::_1));
-        
-        joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>(
-            "/joint_states_cleaned", 10);
+        joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>( "/joint_states", 10, std::bind(&CollisionChecker::jointCallback, this, std::placeholders::_1));
+        joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>( "/joint_states_cleaned", 10);
+        marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("collision_markers", 10);
         
         try {
             fcl_model_ = std::make_shared<FCLRobotModel>(
@@ -235,8 +257,7 @@ private:
             return;
         }
 
-        if (fcl_model_->checkSelfCollision()) {
-            // RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "Self-collision detected!");
+        if (fcl_model_->checkSelfCollision(marker_pub_)) {
             RCLCPP_WARN(this->get_logger(), "Self-collision detected!");
         } else {
             RCLCPP_INFO(this->get_logger(), "No collision.");
@@ -246,6 +267,7 @@ private:
 
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_pub_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
     std::shared_ptr<FCLRobotModel> fcl_model_;
 };
 
