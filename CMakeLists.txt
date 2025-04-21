@@ -13,8 +13,15 @@ find_package(kdl_parser REQUIRED)
 find_package(fcl REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_msgs REQUIRED)
 
 add_executable(collision_checker src/main.cpp)
+set_target_properties(collision_checker PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  INSTALL_RPATH "$ORIGIN;/opt/ros/foxy/lib"
+)
 
 target_include_directories(collision_checker PUBLIC
   /usr/local/include  # FCL headers
@@ -27,7 +34,20 @@ target_link_libraries(collision_checker
 )
 
 
-ament_target_dependencies(collision_checker fcl rclcpp urdfdom sensor_msgs urdf ament_index_cpp visualization_msgs kdl_parser)
+ament_target_dependencies(
+ collision_checker
+ fcl 
+ rclcpp 
+ urdfdom 
+ sensor_msgs 
+ urdf 
+ ament_index_cpp 
+ visualization_msgs 
+ kdl_parser
+ tf2_msgs
+ tf2
+ tf2_ros
+ )
 
 install(
   DIRECTORY urdf

@@ -1,5 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/joint_state.hpp>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_eigen/tf2_eigen.h>
 #include <urdf/model.h>
 #include <fcl/fcl.h>
 #include <fcl/geometry/bvh/BVH_model.h>
@@ -25,18 +27,14 @@ using fcl::Cylinderd;
 using fcl::BVHModel;
 using fcl::OBBRSSd;
 
-// Mesh cache type
-using MeshCache = std::unordered_map<std::string, std::shared_ptr<BVHModel<OBBRSSd>>>;
-
 struct LinkCollision {
     std::shared_ptr<CollisionObjectd> object;
-    std::string parent_joint;
-    Eigen::Isometry3d local_transform;
+    Eigen::Isometry3d local_transform; 
 };
 
 class FCLRobotModel {
 public:
-    FCLRobotModel(const std::string& urdf_path) {
+    FCLRobotModel(const std::string& urdf_path, rclcpp::Logger logger) : logger_(logger) {
         urdf::Model model;
         if (!model.initFile(urdf_path)) {
             throw std::runtime_error("Failed to load URDF file");
@@ -69,8 +67,7 @@ public:
             }
             else if (auto mesh = std::dynamic_pointer_cast<urdf::Mesh>(link->collision->geometry)) {
                 std::string resolved_path = resolvePackagePath(mesh->filename);
-                
-                // Check cache first
+
                 static MeshCache mesh_cache;
                 auto cached = mesh_cache.find(resolved_path);
                 if (cached != mesh_cache.end()) {
@@ -81,52 +78,68 @@ public:
                         mesh_cache[resolved_path] = fcl_mesh;
                         obj = std::make_shared<CollisionObjectd>(fcl_mesh);
                     } else {
-                        RCLCPP_ERROR(rclcpp::get_logger("FCLRobotModel"), 
-                                   "Failed to load mesh: %s", resolved_path.c_str());
+                        RCLCPP_ERROR(rclcpp::get_logger("FCLRobotModel"),
+                                "Failed to load mesh: %s", resolved_path.c_str());
                         continue;
                     }
                 }
             }
             else {
-                RCLCPP_WARN(rclcpp::get_logger("FCLRobotModel"), 
-                          "Unsupported collision geometry for link: %s", 
-                          link->name.c_str());
+                RCLCPP_WARN(rclcpp::get_logger("FCLRobotModel"),
+                        "Unsupported collision geometry for link: %s",
+                        link->name.c_str());
                 continue;
             }
 
-            LinkCollision lc = {obj, link->parent_joint ? link->parent_joint->name : "", tf};
+            LinkCollision lc = {obj, tf};
             links_[link->name] = lc;
         }
+        ignore_pairs_.insert({"logo_link", "waist_support_link"});
+        ignore_pairs_.insert({"pelvis_contour_link", "waist_support_link"});
+        ignore_pairs_.insert({"logo_link", "pelvis_contour_link"});
     }
 
-    void updateTransforms(const std::unordered_map<std::string, double>& joint_positions) {
+    void updateTransforms(const std::unordered_map<std::string, Eigen::Isometry3d>& link_transforms) {
         for (auto& pair : links_) {
+            const std::string& link_name = pair.first;
             auto& lc = pair.second;
-            double angle = 0.0;
-            if (joint_positions.count(lc.parent_joint))
-                angle = joint_positions.at(lc.parent_joint);
 
-            Eigen::Isometry3d joint_tf = Eigen::Isometry3d::Identity();
-            joint_tf.linear() = Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitZ()).toRotationMatrix();
-
-            lc.object->setTransform(joint_tf * lc.local_transform);
+            if (link_transforms.count(link_name)) {
+                Eigen::Isometry3d global_tf = link_transforms.at(link_name) * lc.local_transform;
+                lc.object->setTransform(global_tf);
+            }
         }
     }
 
     bool checkSelfCollision(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub) {
+        bool flag = false;
         for (auto it1 = links_.begin(); it1 != links_.end(); ++it1) {
             for (auto it2 = std::next(it1); it2 != links_.end(); ++it2) {
+                if (it1->first == it2->first) continue;
+                auto name_pair = std::minmax(it1->first, it2->first);
+                if (ignore_pairs_.count(name_pair)) continue; 
                 CollisionRequestd req;
                 CollisionResultd res;
                 fcl::collide(it1->second.object.get(), it2->second.object.get(), req, res);
                 if (res.isCollision()) {
                     auto contact = res.getContact(0);
                     publishMarker(marker_pub, contact); 
-                    return true;
+                    RCLCPP_WARN(logger_,
+                        "Collision between:\n  Link 1: %s\n  Link 2: %s",
+                        it1->first.c_str(), it2->first.c_str());
+                    flag = true;
                 }
             }
         }
-        return false;
+        return flag;
+    }
+
+    const std::vector<std::string> getLinkNames() const {
+        std::vector<std::string> names;
+        for (const auto& pair : links_) {
+            names.push_back(pair.first);
+        }
+        return names;
     }
 
     void publishMarker(rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub, const fcl::Contactd& contact) {
@@ -151,18 +164,16 @@ public:
 
 private:
     std::string resolvePackagePath(const std::string& url) {
-        // Handle file:// URLs
         if (url.find("file://") == 0) {
             return url.substr(7);
         }
 
-        // Handle package:// URLs
         if (url.find("package://") == 0) {
-            const size_t prefix_len = 10; // "package://" length
+            const size_t prefix_len = 10;
             const size_t slash_pos = url.find('/', prefix_len);
             
             if (slash_pos == std::string::npos) {
-                throw std::runtime_error("Invalid package URL format - missing '/': " + url);
+                throw std::runtime_error("Invalid package URL format: " + url);
             }
 
             const std::string package_name = url.substr(prefix_len, slash_pos - prefix_len);
@@ -172,12 +183,13 @@ private:
                 const std::string package_path = ament_index_cpp::get_package_share_directory(package_name);
                 return package_path + relative_path;
             } catch (const std::runtime_error& e) {
-                throw std::runtime_error("Package not found: " + package_name + " (while resolving: " + url + ")");
+                throw std::runtime_error("Package not found: " + package_name);
             }
         }
 
         return url;
     }
+
     std::shared_ptr<BVHModel<OBBRSSd>> loadMesh(const std::string& file_path) {
         auto model = std::make_shared<BVHModel<OBBRSSd>>();
         model->beginModel();
@@ -189,18 +201,15 @@ private:
             return nullptr;
         }
 
-        // Read STL header
         char header[80];
         file.read(header, 80);
         
-        // Read triangle count
         uint32_t tri_count;
         file.read(reinterpret_cast<char*>(&tri_count), 4);
 
         std::vector<fcl::Vector3d> vertices;
         vertices.reserve(tri_count * 3);
 
-        // Read triangles
         for (uint32_t i = 0; i < tri_count; ++i) {
             file.seekg(12 + 12*3 + 2, std::ios::cur);
             fcl::Vector3d v[3];
@@ -211,7 +220,6 @@ private:
                 file.read(reinterpret_cast<char*>(&v[j][2]), sizeof(float));
             }
 
-            // Add vertices and triangle
             vertices.insert(vertices.end(), {v[0], v[1], v[2]});
             model->addTriangle(v[0], v[1], v[2]);
         }
@@ -224,54 +232,75 @@ private:
         return model;
     }
 
+    using MeshCache = std::unordered_map<std::string, std::shared_ptr<BVHModel<OBBRSSd>>>;
     int marker_id_ = 0;
+    rclcpp::Logger logger_;
     std::unordered_map<std::string, LinkCollision> links_;
+    std::set<std::pair<std::string, std::string>> ignore_pairs_;
 };
 
 class CollisionChecker : public rclcpp::Node {
-public:
-    CollisionChecker() : Node("collision_checker") {
-        joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>( "/joint_states", 10, std::bind(&CollisionChecker::jointCallback, this, std::placeholders::_1));
-        joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>( "/joint_states_cleaned", 10);
-        marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("collision_markers", 10);
-        
-        try {
-            fcl_model_ = std::make_shared<FCLRobotModel>(
-                "unitree_ws/src/fcl_self_collision_checker/urdf/g1_29dof_lock_waist.urdf");
-        } catch (const std::exception& e) {
-            RCLCPP_FATAL(get_logger(), "Failed to initialize robot model: %s", e.what());
-            rclcpp::shutdown();
+    public:
+        CollisionChecker() : Node("collision_checker") {
+            marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("collision_markers", 10);
+            
+            tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+            tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this, false);
+            
+            update_timer_ = this->create_wall_timer( std::chrono::milliseconds(100), std::bind(&CollisionChecker::updateTransforms, this));
+            try {
+                fcl_model_ = std::make_shared<FCLRobotModel>(
+                    "unitree_ws/src/fcl_self_collision_checker/urdf/g1_29dof_lock_waist.urdf",
+                    this->get_logger()
+                );
+            } catch (const std::exception& e) {
+                RCLCPP_FATAL(get_logger(), "Failed to initialize robot model: %s", e.what());
+                rclcpp::shutdown();
+            }
+            RCLCPP_INFO(this->get_logger(), "CollisionChecker node started");
         }
-    }
-
-private:
-    void jointCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
-        std::unordered_map<std::string, double> joints;
-        for (size_t i = 0; i < msg->name.size(); ++i)
-            joints[msg->name[i]] = msg->position[i];
-
-        try {
-            fcl_model_->updateTransforms(joints);
-        } catch (const std::exception& e) {
-            RCLCPP_ERROR(get_logger(), "Transform update failed: %s", e.what());
-            return;
+    
+    private:
+        void updateTransforms() {
+            std::unordered_map<std::string, Eigen::Isometry3d> link_transforms;
+            const std::string target_frame = "pelvis";
+    
+            for (const auto& link_name : fcl_model_->getLinkNames()) {
+                try {
+                    geometry_msgs::msg::TransformStamped transform_stamped =
+                        tf_buffer_->lookupTransform(target_frame, link_name, tf2::TimePointZero);
+                    
+                    Eigen::Isometry3d transform = tf2::transformToEigen(transform_stamped.transform);
+                    link_transforms[link_name] = transform;
+                } catch (const tf2::TransformException& ex) {
+                    RCLCPP_WARN(get_logger(), "Could not transform %s to %s: %s",
+                        target_frame.c_str(), link_name.c_str(), ex.what());
+                    continue;
+                }
+            }
+    
+            try {
+                fcl_model_->updateTransforms(link_transforms);
+            } catch (const std::exception& e) {
+                RCLCPP_ERROR(get_logger(), "Transform update failed: %s", e.what());
+                return;
+            }
+    
+            if (fcl_model_->checkSelfCollision(marker_pub_)) {
+                RCLCPP_WARN(get_logger(), "Self-collision detected!");
+            } else {
+                RCLCPP_INFO(get_logger(), "No collision.");
+            }
         }
+    
+        std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+        rclcpp::TimerBase::SharedPtr update_timer_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+        std::shared_ptr<FCLRobotModel> fcl_model_;
+    };
 
-        if (fcl_model_->checkSelfCollision(marker_pub_)) {
-            RCLCPP_WARN(this->get_logger(), "Self-collision detected!");
-        } else {
-            RCLCPP_INFO(this->get_logger(), "No collision.");
-            joint_pub_->publish(*msg);
-        }
-    }
-
-    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
-    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_pub_;
-    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
-    std::shared_ptr<FCLRobotModel> fcl_model_;
-};
-
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<CollisionChecker>();
     rclcpp::spin(node);
