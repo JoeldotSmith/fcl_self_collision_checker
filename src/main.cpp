@@ -272,6 +272,30 @@ class CollisionChecker : public rclcpp::Node {
         }
     
     private:
+        void benchmark() {
+            static size_t count = 0;
+            static double mean = 0.0;
+            static double m2 = 0.0;
+        
+            auto start = std::chrono::high_resolution_clock::now();
+            updateTransforms();
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start).count();
+        
+            count++;
+            double delta = duration - mean;
+            mean += delta / count;
+            m2 += delta * (duration - mean);
+        
+            if (count > 1) {
+                double variance = m2 / (count - 1);
+                double stddev = std::sqrt(variance);
+                double ci95 = 1.96 * stddev / std::sqrt(count);
+                RCLCPP_INFO(this->get_logger(), "n: %zu | Mean: %.3f ms | StdDev: %.3f ms | 95%% CI: ±%.3f ms", count, mean, stddev, ci95);
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Collecting data... First sample: %.3f ms", duration);
+            }
+        }
         void updateTransforms() {
             std::unordered_map<std::string, Eigen::Isometry3d> link_transforms;
             const std::string target_frame = "pelvis";
@@ -304,6 +328,8 @@ class CollisionChecker : public rclcpp::Node {
             }
         }
     
+        size_t count = 0;
+        double total_time_ms = 0.0;
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
         rclcpp::TimerBase::SharedPtr update_timer_;

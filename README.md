@@ -27,6 +27,9 @@ The node listens to the /tf topic for data on the joint transforms please get th
     ros2 run fcl_self_collision_checker collision_checker
     ```
 
+## Benchmark
+n: 5000 | Mean: 2.583 ms | StdDev: 1.329 ms | 95% CI: ±0.037 ms
+
 ## Dependencies
 
 - ROS 2 (Only tested on foxy)
