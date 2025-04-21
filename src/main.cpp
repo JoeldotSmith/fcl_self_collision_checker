@@ -7,6 +7,7 @@
 #include <fcl/geometry/bvh/BVH_model.h>
 #include <fcl/geometry/bvh/BVH_internal.h>
 #include <fcl/geometry/shape/sphere.h>
+#include <fcl/geometry/shape/box.h>
 #include <fcl/geometry/shape/triangle_p.h>
 #include <fcl/geometry/shape/cylinder.h>
 #include <fcl/geometry/geometric_shape_to_BVH_model.h>
@@ -65,18 +66,24 @@ public:
                 auto fcl_cyl = std::make_shared<Cylinderd>(cylinder->radius, cylinder->length);
                 obj = std::make_shared<CollisionObjectd>(fcl_cyl);
             }
+            else if (auto box = std::dynamic_pointer_cast<urdf::Box>(link->collision->geometry)) {
+                auto fcl_box = std::make_shared<fcl::Boxd>(box->dim.x, box->dim.y, box->dim.z);
+                obj = std::make_shared<CollisionObjectd>(fcl_box);
+            }
             else if (auto mesh = std::dynamic_pointer_cast<urdf::Mesh>(link->collision->geometry)) {
                 std::string resolved_path = resolvePackagePath(mesh->filename);
-
+            
                 static MeshCache mesh_cache;
                 auto cached = mesh_cache.find(resolved_path);
                 if (cached != mesh_cache.end()) {
                     obj = std::make_shared<CollisionObjectd>(cached->second);
+                    RCLCPP_INFO(rclcpp::get_logger("FCLRobotModel"), "Loaded mesh for link: %s", link->name.c_str());
                 } else {
                     auto fcl_mesh = loadMesh(resolved_path);
                     if (fcl_mesh) {
                         mesh_cache[resolved_path] = fcl_mesh;
                         obj = std::make_shared<CollisionObjectd>(fcl_mesh);
+                        RCLCPP_INFO(rclcpp::get_logger("FCLRobotModel"), "Loaded mesh for link: %s", link->name.c_str());
                     } else {
                         RCLCPP_ERROR(rclcpp::get_logger("FCLRobotModel"),
                                 "Failed to load mesh: %s", resolved_path.c_str());
@@ -97,6 +104,10 @@ public:
         ignore_pairs_.insert({"logo_link", "waist_support_link"});
         ignore_pairs_.insert({"pelvis_contour_link", "waist_support_link"});
         ignore_pairs_.insert({"logo_link", "pelvis_contour_link"});
+        ignore_pairs_.insert({"left_rubber_hand", "left_wrist_yaw_link"});
+        ignore_pairs_.insert({"left_rubber_hand", "left_wrist_pitch_link"});
+        ignore_pairs_.insert({"right_rubber_hand", "right_wrist_yaw_link"});
+        ignore_pairs_.insert({"right_rubber_hand", "right_wrist_pitch_link"});
     }
 
     void updateTransforms(const std::unordered_map<std::string, Eigen::Isometry3d>& link_transforms) {
