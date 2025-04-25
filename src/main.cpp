@@ -6,6 +6,7 @@
 #include <fcl/fcl.h>
 #include <fcl/geometry/bvh/BVH_model.h>
 #include <fcl/geometry/bvh/BVH_internal.h>
+#include "sensor_msgs/msg/joint_state.hpp"
 #include <fcl/geometry/shape/sphere.h>
 #include <fcl/geometry/shape/box.h>
 #include <fcl/geometry/shape/triangle_p.h>
@@ -255,10 +256,12 @@ class CollisionChecker : public rclcpp::Node {
         CollisionChecker() : Node("collision_checker") {
             marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("collision_markers", 10);
             
+            // runs at about 30Hz
+            joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>( "/joint_states", 10, std::bind(&CollisionChecker::updateTransforms, this, std::placeholders::_1));
+            joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>( "/joint_states_cleaned", 10);
             tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
             tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this, false);
             
-            update_timer_ = this->create_wall_timer( std::chrono::milliseconds(100), std::bind(&CollisionChecker::updateTransforms, this));
             try {
                 fcl_model_ = std::make_shared<FCLRobotModel>(
                     "unitree_ws/src/fcl_self_collision_checker/urdf/g1_29dof_lock_waist.urdf",
@@ -272,31 +275,34 @@ class CollisionChecker : public rclcpp::Node {
         }
     
     private:
-        void benchmark() {
-            static size_t count = 0;
-            static double mean = 0.0;
-            static double m2 = 0.0;
+        // depreciated
+        // void benchmark() {
+        //     static size_t count = 0;
+        //     static double mean = 0.0;
+        //     static double m2 = 0.0;
         
-            auto start = std::chrono::high_resolution_clock::now();
-            updateTransforms();
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start).count();
+        //     auto start = std::chrono::high_resolution_clock::now();
+        //     updateTransforms();
+        //     auto end = std::chrono::high_resolution_clock::now();
+        //     auto duration = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start).count();
         
-            count++;
-            double delta = duration - mean;
-            mean += delta / count;
-            m2 += delta * (duration - mean);
+        //     count++;
+        //     double delta = duration - mean;
+        //     mean += delta / count;
+        //     m2 += delta * (duration - mean);
         
-            if (count > 1) {
-                double variance = m2 / (count - 1);
-                double stddev = std::sqrt(variance);
-                double ci95 = 1.96 * stddev / std::sqrt(count);
-                RCLCPP_INFO(this->get_logger(), "n: %zu | Mean: %.3f ms | StdDev: %.3f ms | 95%% CI: ±%.3f ms", count, mean, stddev, ci95);
-            } else {
-                RCLCPP_INFO(this->get_logger(), "Collecting data... First sample: %.3f ms", duration);
-            }
-        }
-        void updateTransforms() {
+        //     if (count > 1) {
+        //         double variance = m2 / (count - 1);
+        //         double stddev = std::sqrt(variance);
+        //         double ci95 = 1.96 * stddev / std::sqrt(count);
+        //         RCLCPP_INFO(this->get_logger(), "n: %zu | Mean: %.3f ms | StdDev: %.3f ms | 95%% CI: ±%.3f ms", count, mean, stddev, ci95);
+        //     } else {
+        //         RCLCPP_INFO(this->get_logger(), "Collecting data... First sample: %.3f ms", duration);
+        //     }
+        // }
+
+        // runs at about 385Hz
+        void updateTransforms(sensor_msgs::msg::JointState::SharedPtr msg) {
             std::unordered_map<std::string, Eigen::Isometry3d> link_transforms;
             const std::string target_frame = "pelvis";
     
@@ -325,15 +331,15 @@ class CollisionChecker : public rclcpp::Node {
                 RCLCPP_WARN(get_logger(), "Self-collision detected!");
             } else {
                 RCLCPP_INFO(get_logger(), "No collision.");
+                joint_pub_->publish(*msg);
             }
         }
     
-        size_t count = 0;
-        double total_time_ms = 0.0;
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-        rclcpp::TimerBase::SharedPtr update_timer_;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
+        rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_pub_;
+        rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
         std::shared_ptr<FCLRobotModel> fcl_model_;
     };
 
