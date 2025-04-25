@@ -44,7 +44,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/pelvis_contour_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/pelvis_contour_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -72,7 +72,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_hip_pitch_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_hip_pitch_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -101,7 +101,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_hip_roll_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_hip_roll_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -130,7 +130,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_hip_yaw_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_hip_yaw_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -159,7 +159,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_knee_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_knee_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -188,7 +188,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_ankle_pitch_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_ankle_pitch_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -264,7 +264,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_hip_pitch_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_hip_pitch_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -293,7 +293,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_hip_roll_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_hip_roll_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -322,7 +322,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_hip_yaw_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_hip_yaw_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -351,7 +351,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_knee_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_knee_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -380,7 +380,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_ankle_pitch_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_ankle_pitch_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -504,7 +504,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/torso_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/torso_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -540,7 +540,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/logo_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/logo_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -564,7 +564,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/head_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/head_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -593,7 +593,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/waist_support_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/waist_support_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -711,7 +711,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_shoulder_yaw_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_shoulder_yaw_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -740,7 +740,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_elbow_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_elbow_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -776,7 +776,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_wrist_roll_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_wrist_roll_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -805,7 +805,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_wrist_pitch_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_wrist_pitch_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -834,7 +834,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_wrist_yaw_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_wrist_yaw_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -859,9 +859,9 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.0415 0.003 0" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <box size="0.20 0.07 0.10"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/left_rubber_hand_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -941,7 +941,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_shoulder_yaw_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_shoulder_yaw_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -970,7 +970,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_elbow_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_elbow_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -1006,7 +1006,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_wrist_roll_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_wrist_roll_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -1035,7 +1035,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_wrist_pitch_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_wrist_pitch_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -1064,7 +1064,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_wrist_yaw_link.STL"/>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_wrist_yaw_link_collision_model.STL"/>
       </geometry>
     </collision>
   </link>
@@ -1089,8 +1089,9 @@
       </material>
     </visual>
     <collision>
-    <origin xyz="0.0415 -0.003 0" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
+        <mesh filename="package://fcl_self_collision_checker/urdf/meshes/right_rubber_hand_collision_model.STL"/>
         <box size="0.20 0.07 0.10"/>
       </geometry>
     </collision>

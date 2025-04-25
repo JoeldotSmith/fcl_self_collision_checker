@@ -102,13 +102,44 @@ public:
             LinkCollision lc = {obj, tf};
             links_[link->name] = lc;
         }
+
+
+        // joints always in collision
         ignore_pairs_.insert({"logo_link", "waist_support_link"});
         ignore_pairs_.insert({"pelvis_contour_link", "waist_support_link"});
         ignore_pairs_.insert({"logo_link", "pelvis_contour_link"});
-        ignore_pairs_.insert({"left_rubber_hand", "left_wrist_yaw_link"});
+        ignore_pairs_.insert({"torso_link", "waist_support_link"});
+        ignore_pairs_.insert({"right_elbow_link", "right_wrist_roll_link"});
+        ignore_pairs_.insert({"left_hip_pitch_link", "left_hip_roll_link"});
+        ignore_pairs_.insert({"left_hip_roll_link", "left_hip_yaw_link"});
+        ignore_pairs_.insert({"left_elbow_link", "left_shoulder_yaw_link"});
+        ignore_pairs_.insert({"left_elbow_link", "left_wrist_roll_link"});
+        ignore_pairs_.insert({"head_link", "torso_link"});
+        ignore_pairs_.insert({"left_ankle_pitch_link", "left_knee_link"});
+        ignore_pairs_.insert({"left_hip_yaw_link", "left_knee_link"});
+        ignore_pairs_.insert({"logo_link", "torso_link"});
+        ignore_pairs_.insert({"right_ankle_pitch_link", "right_knee_link"});
+        ignore_pairs_.insert({"right_elbow_link", "right_shoulder_yaw_link"});
+        ignore_pairs_.insert({"right_hip_pitch_link", "right_hip_roll_link"});
+        ignore_pairs_.insert({"right_hip_roll_link", "right_hip_yaw_link"});
+        ignore_pairs_.insert({"right_hip_yaw_link", "right_knee_link"});
+        ignore_pairs_.insert({"left_rubber_hand", "left_wrist_yaw_link"}); 
         ignore_pairs_.insert({"left_rubber_hand", "left_wrist_pitch_link"});
         ignore_pairs_.insert({"right_rubber_hand", "right_wrist_yaw_link"});
         ignore_pairs_.insert({"right_rubber_hand", "right_wrist_pitch_link"});
+        ignore_pairs_.insert({"right_wrist_pitch_link", "right_wrist_yaw_link"});
+        ignore_pairs_.insert({"right_wrist_pitch_link", "right_wrist_roll_link"});
+        ignore_pairs_.insert({"left_shoulder_pitch_link", "torso_link"});
+        ignore_pairs_.insert({"left_hip_pitch_link", "pelvis_contour_link"});
+        ignore_pairs_.insert({"left_elbow_link", "left_wrist_pitch_link"});
+        ignore_pairs_.insert({"left_wrist_pitch_link", "left_wrist_yaw_link"});
+        ignore_pairs_.insert({"left_shoulder_roll_link", "left_shoulder_yaw_link"});
+        ignore_pairs_.insert({"left_wrist_pitch_link", "left_wrist_roll_link"});
+        ignore_pairs_.insert({"pelvis_contour_link", "right_hip_pitch_link"});
+        ignore_pairs_.insert({"right_elbow_link", "right_wrist_pitch_link"});
+        ignore_pairs_.insert({"right_shoulder_pitch_link", "torso_link"});
+        ignore_pairs_.insert({"right_shoulder_roll_link", "right_shoulder_yaw_link"});
+
     }
 
     void updateTransforms(const std::unordered_map<std::string, Eigen::Isometry3d>& link_transforms) {
@@ -205,42 +236,34 @@ private:
     std::shared_ptr<BVHModel<OBBRSSd>> loadMesh(const std::string& file_path) {
         auto model = std::make_shared<BVHModel<OBBRSSd>>();
         model->beginModel();
-
+    
         std::ifstream file(file_path, std::ios::binary);
         if (!file.is_open()) {
             RCLCPP_ERROR(rclcpp::get_logger("FCLRobotModel"), 
-                       "Failed to open mesh file: %s", file_path.c_str());
+                         "Failed to open mesh file: %s", file_path.c_str());
             return nullptr;
         }
-
-        char header[80];
-        file.read(header, 80);
-        
+    
+        file.seekg(80); // skip header
         uint32_t tri_count;
         file.read(reinterpret_cast<char*>(&tri_count), 4);
-
-        std::vector<fcl::Vector3d> vertices;
-        vertices.reserve(tri_count * 3);
-
+    
         for (uint32_t i = 0; i < tri_count; ++i) {
-            file.seekg(12 + 12*3 + 2, std::ios::cur);
+            file.seekg(12, std::ios::cur); // skip normal
             fcl::Vector3d v[3];
-
             for (int j = 0; j < 3; ++j) {
-                file.read(reinterpret_cast<char*>(&v[j][0]), sizeof(float));
-                file.read(reinterpret_cast<char*>(&v[j][1]), sizeof(float));
-                file.read(reinterpret_cast<char*>(&v[j][2]), sizeof(float));
+                float coords[3];
+                file.read(reinterpret_cast<char*>(&coords[0]), sizeof(float));
+                file.read(reinterpret_cast<char*>(&coords[1]), sizeof(float));
+                file.read(reinterpret_cast<char*>(&coords[2]), sizeof(float));
+                v[j] = fcl::Vector3d(coords[0], coords[1], coords[2]);
             }
-
-            vertices.insert(vertices.end(), {v[0], v[1], v[2]});
             model->addTriangle(v[0], v[1], v[2]);
+            file.seekg(2, std::ios::cur); // skip attribute byte count
         }
-
-        for (const auto& v : vertices) {
-            model->addVertex(v);
-        }
-
+    
         model->endModel();
+        model->computeLocalAABB();
         return model;
     }
 
@@ -257,7 +280,7 @@ class CollisionChecker : public rclcpp::Node {
             marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("collision_markers", 10);
             
             // runs at about 30Hz
-            joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>( "/joint_states", 10, std::bind(&CollisionChecker::updateTransforms, this, std::placeholders::_1));
+            joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>( "/joint_states", 10, std::bind(&CollisionChecker::benchmark, this, std::placeholders::_1));
             joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>( "/joint_states_cleaned", 10);
             tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
             tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this, false);
@@ -275,33 +298,32 @@ class CollisionChecker : public rclcpp::Node {
         }
     
     private:
-        // depreciated
-        // void benchmark() {
-        //     static size_t count = 0;
-        //     static double mean = 0.0;
-        //     static double m2 = 0.0;
+        void benchmark(sensor_msgs::msg::JointState::SharedPtr msg) {
+            static size_t count = 0;
+            static double mean = 0.0;
+            static double m2 = 0.0;
         
-        //     auto start = std::chrono::high_resolution_clock::now();
-        //     updateTransforms();
-        //     auto end = std::chrono::high_resolution_clock::now();
-        //     auto duration = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start).count();
+            auto start = std::chrono::high_resolution_clock::now();
+            updateTransforms(msg);
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(end - start).count();
         
-        //     count++;
-        //     double delta = duration - mean;
-        //     mean += delta / count;
-        //     m2 += delta * (duration - mean);
+            count++;
+            double delta = duration - mean;
+            mean += delta / count;
+            m2 += delta * (duration - mean);
         
-        //     if (count > 1) {
-        //         double variance = m2 / (count - 1);
-        //         double stddev = std::sqrt(variance);
-        //         double ci95 = 1.96 * stddev / std::sqrt(count);
-        //         RCLCPP_INFO(this->get_logger(), "n: %zu | Mean: %.3f ms | StdDev: %.3f ms | 95%% CI: ±%.3f ms", count, mean, stddev, ci95);
-        //     } else {
-        //         RCLCPP_INFO(this->get_logger(), "Collecting data... First sample: %.3f ms", duration);
-        //     }
-        // }
+            if (count > 1) {
+                double variance = m2 / (count - 1);
+                double stddev = std::sqrt(variance);
+                double ci95 = 1.96 * stddev / std::sqrt(count);
+                RCLCPP_INFO(this->get_logger(), "n: %zu | Mean: %.3f ms | StdDev: %.3f ms | 95%% CI: ±%.3f ms", count, mean, stddev, ci95);
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Collecting data... First sample: %.3f ms", duration);
+            }
+        }
 
-        // runs at about 385Hz
+        // runs at about 276.7Hz
         void updateTransforms(sensor_msgs::msg::JointState::SharedPtr msg) {
             std::unordered_map<std::string, Eigen::Isometry3d> link_transforms;
             const std::string target_frame = "pelvis";

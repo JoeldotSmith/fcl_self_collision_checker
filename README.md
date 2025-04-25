@@ -28,7 +28,7 @@ The node listens to the /tf topic for data on the joint transforms please get th
     ```
 
 ## Benchmark
-n: 5000 | Mean: 2.583 ms | StdDev: 1.329 ms | 95% CI: ±0.037 ms
+[INFO] [1745572375.761917956] [collision_checker]: n: 5000 | Mean: 3.614 ms | StdDev: 1.634 ms | 95% CI: ±0.045 ms
 
 ## Dependencies
 
