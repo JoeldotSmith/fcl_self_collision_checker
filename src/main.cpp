@@ -280,7 +280,7 @@ class CollisionChecker : public rclcpp::Node {
             marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("collision_markers", 10);
             
             // runs at about 30Hz
-            joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>( "/joint_states", 10, std::bind(&CollisionChecker::benchmark, this, std::placeholders::_1));
+            joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>( "/joint_states", 10, std::bind(&CollisionChecker::updateTransforms, this, std::placeholders::_1));
             joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>( "/joint_states_cleaned", 10);
             tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
             tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this, false);
