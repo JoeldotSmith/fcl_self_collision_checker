@@ -275,6 +275,7 @@ class CollisionChecker : public rclcpp::Node {
         }
     
     private:
+        // depreciated
         // void benchmark() {
         //     static size_t count = 0;
         //     static double mean = 0.0;
