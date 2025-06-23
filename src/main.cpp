@@ -20,6 +20,7 @@
 #include <memory>
 #include <fstream>
 #include <stdexcept>
+#include <geometry_msgs/msg/transform.hpp>
 
 using fcl::CollisionObjectd;
 using fcl::CollisionRequestd;
@@ -279,11 +280,30 @@ class CollisionChecker : public rclcpp::Node {
         CollisionChecker() : Node("collision_checker") {
             marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("collision_markers", 10);
             
+            tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+            tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this, false);
+
             // runs at about 30Hz
             joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>( "/joint_states", 10, std::bind(&CollisionChecker::updateTransforms, this, std::placeholders::_1));
             joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>( "/joint_states_cleaned", 10);
-            tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-            tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_, this, false);
+
+            r_hand_pub_ = this->create_publisher<geometry_msgs::msg::Transform>("/r_hand_cleaned", 10);
+            l_hand_pub_ = this->create_publisher<geometry_msgs::msg::Transform>("/l_hand_cleaned", 10);
+
+
+
+            r_hand_sub_ = this->create_subscription<geometry_msgs::msg::Transform>(
+                "/r_hand", 10,
+                [this](geometry_msgs::msg::Transform::SharedPtr msg) {
+                    latest_r_hand_ = msg;
+                });
+            
+            l_hand_sub_ = this->create_subscription<geometry_msgs::msg::Transform>(
+                "/l_hand", 10,
+                [this](geometry_msgs::msg::Transform::SharedPtr msg) {
+                    latest_l_hand_ = msg;
+                });
+
             
             try {
                 fcl_model_ = std::make_shared<FCLRobotModel>(
@@ -351,17 +371,32 @@ class CollisionChecker : public rclcpp::Node {
     
             if (fcl_model_->checkSelfCollision(marker_pub_)) {
                 RCLCPP_WARN(get_logger(), "Self-collision detected!");
+                // if (latest_r_hand_) r_hand_pub_->publish(*latest_r_hand_);
+                // if (latest_l_hand_) l_hand_pub_->publish(*latest_l_hand_);
+                // joint_pub_->publish(*msg);
             } else {
                 RCLCPP_INFO(get_logger(), "No collision.");
+                if (latest_r_hand_) r_hand_pub_->publish(*latest_r_hand_);
+                if (latest_l_hand_) l_hand_pub_->publish(*latest_l_hand_);
                 joint_pub_->publish(*msg);
             }
         }
     
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub_;
         rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_pub_;
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
+
+        rclcpp::Publisher<geometry_msgs::msg::Transform>::SharedPtr r_hand_pub_;
+        rclcpp::Publisher<geometry_msgs::msg::Transform>::SharedPtr l_hand_pub_;
+        rclcpp::Subscription<geometry_msgs::msg::Transform>::SharedPtr r_hand_sub_;
+        rclcpp::Subscription<geometry_msgs::msg::Transform>::SharedPtr l_hand_sub_;
+
+        geometry_msgs::msg::Transform::SharedPtr latest_r_hand_;
+        geometry_msgs::msg::Transform::SharedPtr latest_l_hand_;
+
         std::shared_ptr<FCLRobotModel> fcl_model_;
     };
 
